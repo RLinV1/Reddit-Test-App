@@ -1,4 +1,7 @@
-# How to Run
+# Fake Reddit App
+
+## Technologies Used
+1. Next.js, Express, MongoDB, Node.js
 
 
 ## Prerequistes
