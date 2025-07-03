@@ -18,6 +18,30 @@ mongoose.connect('mongodb://127.0.0.1:27017/evbuddy', {
   console.error('MongoDB connection error:', err)
   });
 
+app.get("/api/users/:uid", async (req, res) => {
+  const { uid } = req.params;
+  try {
+    const user = await User.findOne({ uid });
+    if (!user) {    
+      return res.status(404).json({ error: 'User not found' });
+    } 
+    res.json(user);
+  } catch (error) { 
+    res.status(500).json({ error: error.message });
+  }
+});
+app.post("/api/users", async (req, res) => {
+  const { uid, email, username, isAdmin } = req.body;
+
+  try {
+    const user = new User({ uid, email, username, isAdmin });
+    await user.save();
+    res.status(201).json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/posts', async (req, res) => {
   const { title, content, username } = req.body;
   if (!title || !content || !username) {
@@ -38,6 +62,8 @@ app.get('/api/posts', async (req, res) => {
   res.json(posts);
 });
 
+
+
 app.delete('/api/posts/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -48,26 +74,93 @@ app.delete('/api/posts/:id', async (req, res) => {
   }
 });
 
-app.post('/api/posts/:id/upvote', async (req, res) => {
-  const { id } = req.params;
-  const { username } = req.body;
 
-  if (!username) {
-    return res.status(400).json({ error: 'Username is required' });
+app.post('/api/posts/upvote', async (req, res) => {
+  const { id, uid } = req.body;
+  if (!uid) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+  
+  const post = await Post.findById(id);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+
+  let voteChange = 0; 
+
+  const existingVote = await Vote.findOne({ post: id, uid });
+
+  if (existingVote) {
+    if (existingVote.vote === 1) {
+      await Vote.deleteOne({ post: id, uid });
+      voteChange = -1;  
+    } else {
+      existingVote.vote = 1;
+      await existingVote.save();
+      voteChange = 2; 
+    }
+  } else {
+    // New upvote
+    const newVote = new Vote({ post: id, uid, vote: 1 });
+    await newVote.save();
+    voteChange = 1;
   }
 
   try {
-    const post = await Post.findById(id);
-    if (!post) {
-      return res.status(404).json({ error: 'Post not found' });
-    }
-    const updatedPost = await Post.findByIdAndUpdate(id, { $set: { upvotes: post.upvotes + 1 } }, { new: true });
+    const updatedPost = await Post.findByIdAndUpdate(
+      id,
+      { $inc: { upvotes: voteChange } }, // increment instead of set
+      { new: true }
+    );
     res.json(updatedPost);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
-
 });
+
+
+app.post('/api/posts/downvote', async (req, res) => {
+  const { id, uid } = req.body;
+  if (!uid) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  const post = await Post.findById(id);
+  if (!post) {
+    return res.status(404).json({ error: 'Post not found' });
+  }
+
+  let voteChange = 0;
+
+  const existingVote = await Vote.findOne({ post: id, uid });
+
+  if (existingVote) {
+    if (existingVote.vote === -1) {
+      await Vote.deleteOne({ post: id, uid });
+      voteChange = 1; 
+    } else {
+      existingVote.vote = -1;
+      await existingVote.save();
+      voteChange = -2;  
+    }
+  } else {
+    const newVote = new Vote({ post: id, uid, vote: -1 });
+    await newVote.save();
+    voteChange = -1;
+  }
+
+  try {
+    const updatedPost = await Post.findByIdAndUpdate(
+      id,
+      { $inc: { upvotes: voteChange } },
+      { new: true }
+    );
+    res.json(updatedPost);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 
 
 app.listen(8000, () => {

@@ -1,12 +1,95 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { auth } from "../../firebase/firebase";
-import { signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { AxiosResponse } from "axios";
+import axios from "axios";
 
 const Dashboard = () => {
+
+  type Post = {
+    _id: number;
+    title: string;
+    content: string;
+    username: string;
+    upvotes: number;
+  };
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [error, setError] = useState("");
+  const [user, setUser] = useState<any>(null);
+
+
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    setUser(firebaseUser);
+    console.log("User state changed:", firebaseUser);
+  });
+
+  return () => unsubscribe();
+}, []);
+
+  useEffect(() => {
+    const data = axios.get("http://localhost:8000/api/posts")
+      .then((response: AxiosResponse) => {
+        setPosts(response.data);
+      }
+      )
+      .catch((error: Error) => {
+        console.error("Error fetching posts:", error);
+      });
+
+      if (user) {
+      axios.get(`http://localhost:8000/api/users/${user?.uid}`)
+        .then((response: AxiosResponse) => {
+          setUser(response.data);
+        })
+        .catch((error: Error) => {
+          console.error("Error fetching user:", error);
+          router.push("/");
+        });
+      }
+  }, [user]);
+
+  const handleUpvote = async (postId: number) => {
+    try {
+      const response = await axios.post(`http://localhost:8000/api/posts/upvote`, {
+        id: postId,
+        uid: auth.currentUser?.uid,
+      });
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post._id === postId ? { ...post, upvotes: response.data.upvotes } : post
+        ).sort((a, b) => b.upvotes - a.upvotes)
+      );
+    } catch (error) {
+      console.error("Error upvoting post:", error);
+      setError("Failed to upvote post. You can only upvote once.");
+    }
+  };
+
+  const handleDownvote = async (postId: number) => {
+    try {
+      const response = await axios.post(`http://localhost:8000/api/posts/downvote`, {
+        id: postId,
+        uid: auth.currentUser?.uid,
+      });
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post._id === postId ? { ...post, upvotes: response.data.upvotes } : post
+        ).sort((a, b) => b.upvotes - a.upvotes)
+      );
+    } catch (error) {
+      console.error("Error downvoting post:", error);
+      setError("Failed to downvote post. You can only downvote once.");
+    }
+  };
   const router = useRouter();
 
   function linkify(text: string) {
@@ -34,35 +117,40 @@ const Dashboard = () => {
       router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
-      alert("Failed to sign out.");
+      setError("Failed to sign out.");
     }
+  };
+  const handlePostSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await axios.post("http://localhost:8000/api/posts", {
+      title,
+      content,
+      username: auth.currentUser?.displayName || "Anonymous",
+    });
+    setTitle("");
+    setContent("");
+    setShowModal(false);
+
+    const response = await axios.get("http://localhost:8000/api/posts");
+    setPosts(response.data);
   };
 
   const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
 
-  const fakePosts = [
-    {
-      id: 1,
-      title: "Why React is Awesome",
-      content:
-        "React makes building UIs a breeze. Learn more: https://react.dev",
-      user: "user123",
-      upvotes: 120,
-    },
-    {
-      id: 2,
-      title: "Understanding JavaScript Closures",
-      content:
-        "Closures are a fundamental concept in JavaScript that every dev should understand.",
-      user: "js_lover",
-      upvotes: 95,
-    },
-  ];
 
 
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-screen p-4 text-black dark:text-white">
+      {error && (
+        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white px-4 py-2 flex justify-between items-center z-50">
+          <span>{error}</span>
+          <button onClick={() => setError("")} className="font-bold ml-4 cursor-pointer">
+            X
+          </button>
+        </div>
+      )}
+
       <nav className="border-gray-200 dark:bg-gray-900 dark:border-gray-700 text-black dark:text-white">
         <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto py-4">
           <a href="#" className="flex items-center space-x-3">
@@ -101,8 +189,16 @@ const Dashboard = () => {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded dark:bg-gray-700">
+                  <div className="absolute right-0 mt-2 w-fit bg-white rounded dark:bg-gray-700">
                     <ul className="py-2 text-gray-700 dark:text-gray-200">
+                      {user.isAdmin && <li>
+                        <a
+                          onClick={() => router.push("/admin")}
+                          className="block px-4 py-2 cursor-pointer text-nowrap hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
+                        >
+                          Admin Dashboard
+                        </a>
+                      </li> }
                       <li>
                         <a
                           onClick={handleSignOut}
@@ -111,6 +207,7 @@ const Dashboard = () => {
                           Sign out
                         </a>
                       </li>
+                      
                     </ul>
                   </div>
                 )}
@@ -124,15 +221,15 @@ const Dashboard = () => {
       <div>
         <h1 className="text-3xl font-bold text-center mt-6">Current Posts</h1>
         <div className="max-w-5xl mx-auto p-4">
-          {fakePosts.map(({ id, title, content, user, upvotes }) => (
+          {posts.map(({ _id, title, content, username, upvotes }) => (
             <div
-              key={id}
+              key={_id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 m-4 flex"
             >
               <div className="flex flex-col items-center justify-center gap-4 mr-8">
-                <button>⬆️</button>
+                <button className="cursor-pointer" onClick={() => handleUpvote(_id)}>⬆️</button>
                 <span>{upvotes}</span>
-                <button>⬇️</button>
+                <button className="cursor-pointer" onClick={() => handleDownvote(_id)}>⬇️</button>
               </div>
               <div className="flex flex-col">
                 <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
@@ -142,7 +239,7 @@ const Dashboard = () => {
                   {linkify(content)}
                 </p>
                 <div className="text-gray-500 dark:text-gray-400 text-sm">
-                  Posted by <strong>{user}</strong>
+                  Posted by <strong>{username}</strong>
                 </div>
               </div>
             </div>
@@ -174,16 +271,20 @@ const Dashboard = () => {
                 placeholder="Title"
                 className="p-2 rounded border dark:bg-gray-700 dark:text-white"
                 required
+                onChange={(e) => setTitle(e.target.value)}
               />
               <textarea
                 placeholder="Content or link"
                 rows={4}
                 className="p-2 rounded border dark:bg-gray-700 dark:text-white"
+                onChange={(e) => setContent(e.target.value)}
+              
                 required
               ></textarea>
               <button
                 type="submit"
-                className="bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                className="cursor-pointer bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                onClick={handlePostSubmit}
               >
                 Post
               </button>

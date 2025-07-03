@@ -9,6 +9,7 @@ import {
 } from "firebase/auth";
 import { auth } from "../firebase/firebase"; // Adjust the import path as necessary
 import { FirebaseError } from "firebase/app";
+import axios from "axios";
 
 export default function Home() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function Home() {
 
   const handleSignIn = async () => {
     try {
+     
       const userData = await signInWithEmailAndPassword(auth, email, password);
       const user = userData.user;
       console.log("User signed in:", user);
@@ -63,11 +65,20 @@ export default function Home() {
 
   const handleSignUp = async () => {
     try {
+      // generate a new user
+      
       const userData = await createUserWithEmailAndPassword(
         auth,
         email,
         password
       );
+      const mongoDBuser = await axios.post("http://localhost:8000/api/users/", {
+        email,
+        username,
+        isAdmin: false, // Default to false for regular users
+        uid: userData.user.uid, // Use Firebase UID for MongoDB
+      })
+    
       const user = userData.user;
       console.log("User created:", user);
       await updateProfile(user, {
@@ -94,9 +105,7 @@ export default function Home() {
           setError("Weak password. Please use a stronger password.");
         }
       }
-      setError(
-        "Failed to sign up. Please check your credentials and try again."
-      );
+     
     }
   };
   return (
