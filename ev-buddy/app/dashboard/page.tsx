@@ -7,7 +7,6 @@ import { AxiosResponse } from "axios";
 import axios from "axios";
 
 const Dashboard = () => {
-
   type Post = {
     _id: number;
     title: string;
@@ -15,59 +14,93 @@ const Dashboard = () => {
     username: string;
     upvotes: number;
   };
+  type Vote = {
+    post: number; // post ID
+    uid: string;
+    vote: 1 | -1;
+  };
+
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState("");
   const [user, setUser] = useState<any>(null);
-
-
-  useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-    setUser(firebaseUser);
-    console.log("User state changed:", firebaseUser);
-  });
-
-  return () => unsubscribe();
-}, []);
+  const [dbUser, setDbUser] = useState<any>(null); // Database user
+  const [votes, setVotes] = useState<Vote[]>([]);
 
   useEffect(() => {
-    const data = axios.get("http://localhost:8000/api/posts")
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      console.log("User state changed:", firebaseUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const data = axios
+      .get("http://localhost:8000/api/posts")
       .then((response: AxiosResponse) => {
         setPosts(response.data);
-      }
-      )
+      })
       .catch((error: Error) => {
         console.error("Error fetching posts:", error);
       });
 
-      if (user) {
-      axios.get(`http://localhost:8000/api/users/${user?.uid}`)
+    if (user) {
+      axios
+        .get(`http://localhost:8000/api/users/${user?.uid}`)
         .then((response: AxiosResponse) => {
-          setUser(response.data);
+          setDbUser(response.data);
         })
         .catch((error: Error) => {
           console.error("Error fetching user:", error);
           router.push("/");
         });
-      }
+      axios
+        .get(`http://localhost:8000/api/votes/${user?.uid}`)
+        .then((response: AxiosResponse) => {
+          setVotes(response.data);
+          console.log("Votes fetched:", response.data);
+        })
+        .catch((error: Error) => {
+          console.error("Error fetching votes:", error);
+        });
+    }
   }, [user]);
 
   const handleUpvote = async (postId: number) => {
     try {
-      const response = await axios.post(`http://localhost:8000/api/posts/upvote`, {
-        id: postId,
-        uid: auth.currentUser?.uid,
-      });
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
-          post._id === postId ? { ...post, upvotes: response.data.upvotes } : post
-        ).sort((a, b) => b.upvotes - a.upvotes)
+      const response = await axios.post(
+        `http://localhost:8000/api/posts/upvote`,
+        {
+          id: postId,
+          uid: auth.currentUser?.uid,
+        }
       );
+      setPosts((prevPosts) =>
+        prevPosts
+          .map((post) =>
+            post._id === postId
+              ? { ...post, upvotes: response.data.upvotes }
+              : post
+          )
+          .sort((a, b) => b.upvotes - a.upvotes)
+      );
+      // Update votes state
+      axios
+        .get(`http://localhost:8000/api/votes/${user?.uid}`)
+        .then((response: AxiosResponse) => {
+          setVotes(response.data);
+          console.log("Votes fetched:", response.data);
+        })
+        .catch((error: Error) => {
+          console.error("Error fetching votes:", error);
+        });
+
     } catch (error) {
       console.error("Error upvoting post:", error);
       setError("Failed to upvote post. You can only upvote once.");
@@ -76,15 +109,31 @@ const Dashboard = () => {
 
   const handleDownvote = async (postId: number) => {
     try {
-      const response = await axios.post(`http://localhost:8000/api/posts/downvote`, {
-        id: postId,
-        uid: auth.currentUser?.uid,
-      });
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
-          post._id === postId ? { ...post, upvotes: response.data.upvotes } : post
-        ).sort((a, b) => b.upvotes - a.upvotes)
+      const response = await axios.post(
+        `http://localhost:8000/api/posts/downvote`,
+        {
+          id: postId,
+          uid: auth.currentUser?.uid,
+        }
       );
+      setPosts((prevPosts) =>
+        prevPosts
+          .map((post) =>
+            post._id === postId
+              ? { ...post, upvotes: response.data.upvotes }
+              : post
+          )
+          .sort((a, b) => b.upvotes - a.upvotes)
+      );
+      axios
+        .get(`http://localhost:8000/api/votes/${user?.uid}`)
+        .then((response: AxiosResponse) => {
+          setVotes(response.data);
+          console.log("Votes fetched:", response.data);
+        })
+        .catch((error: Error) => {
+          console.error("Error fetching votes:", error);
+        });
     } catch (error) {
       console.error("Error downvoting post:", error);
       setError("Failed to downvote post. You can only downvote once.");
@@ -137,20 +186,21 @@ const Dashboard = () => {
 
   const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
 
-
-
-
   return (
     <div className="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-screen p-4 text-black dark:text-white">
+      {/* Error banner */}
       {error && (
         <div className="fixed top-0 left-0 right-0 bg-red-600 text-white px-4 py-2 flex justify-between items-center z-50">
           <span>{error}</span>
-          <button onClick={() => setError("")} className="font-bold ml-4 cursor-pointer">
+          <button
+            onClick={() => setError("")}
+            className="font-bold ml-4 cursor-pointer"
+          >
             X
           </button>
         </div>
       )}
-
+      {/* Navbar */}
       <nav className="border-gray-200 dark:bg-gray-900 dark:border-gray-700 text-black dark:text-white">
         <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto py-4">
           <a href="#" className="flex items-center space-x-3">
@@ -191,14 +241,16 @@ const Dashboard = () => {
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-fit bg-white rounded dark:bg-gray-700">
                     <ul className="py-2 text-gray-700 dark:text-gray-200">
-                      {user.isAdmin && <li>
-                        <a
-                          onClick={() => router.push("/admin")}
-                          className="block px-4 py-2 cursor-pointer text-nowrap hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
-                        >
-                          Admin Dashboard
-                        </a>
-                      </li> }
+                      {dbUser.isAdmin && (
+                        <li>
+                          <a
+                            onClick={() => router.push("/admin")}
+                            className="block px-4 py-2 cursor-pointer text-nowrap hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
+                          >
+                            Admin Dashboard
+                          </a>
+                        </li>
+                      )}
                       <li>
                         <a
                           onClick={handleSignOut}
@@ -207,7 +259,6 @@ const Dashboard = () => {
                           Sign out
                         </a>
                       </li>
-                      
                     </ul>
                   </div>
                 )}
@@ -217,7 +268,7 @@ const Dashboard = () => {
         </div>
       </nav>
 
-      {/* Feed */}
+      {/* Posts Feed */}
       <div>
         <h1 className="text-3xl font-bold text-center mt-6">Current Posts</h1>
         <div className="max-w-5xl mx-auto p-4">
@@ -227,11 +278,29 @@ const Dashboard = () => {
               className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 m-4 flex"
             >
               <div className="flex flex-col items-center justify-center gap-4 mr-8">
-                <button className="cursor-pointer" onClick={() => handleUpvote(_id)}>⬆️</button>
+                <button
+                  className={`cursor-pointer text-3xl ${
+                    votes.find((v) => v.post === _id && v.vote === 1)
+                      ? "text-orange-500"
+                      : "text-gray-500"
+                  }`}
+                  onClick={() => handleUpvote(_id)}
+                >
+                  ⬆
+                </button>
                 <span>{upvotes}</span>
-                <button className="cursor-pointer" onClick={() => handleDownvote(_id)}>⬇️</button>
+                <button
+                  className={`cursor-pointer text-3xl  ${
+                    votes.find((v) => v.post === _id && v.vote === -1)
+                      ? "text-orange-500"
+                      : "text-gray-500"
+                  }`}
+                  onClick={() => handleDownvote(_id)}
+                >
+                  ⬇
+                </button>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col justify-between w-full">
                 <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
                   {title}
                 </h2>
@@ -249,15 +318,15 @@ const Dashboard = () => {
 
       {/* Modal */}
       {showModal && (
-        <div
-          className="fixed top-0 left-0 w-full h-full dark:bg-gray-950 bg-opacity-50 flex justify-center items-center z-50 "
-        >
+        <div className="fixed top-0 left-0 w-full h-full dark:bg-gray-950 bg-opacity-50 flex justify-center items-center z-50 ">
           <div
             className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 w-full max-w-2xl fade-in "
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-bold dark:text-white">Create Post</h2>
+              <h2 className="text-2xl font-bold dark:text-white">
+                Create Post
+              </h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="text-gray-500 text-2xl hover:text-gray-800 dark:hover:text-white cursor-pointer"
@@ -278,7 +347,6 @@ const Dashboard = () => {
                 rows={4}
                 className="p-2 rounded border dark:bg-gray-700 dark:text-white"
                 onChange={(e) => setContent(e.target.value)}
-              
                 required
               ></textarea>
               <button

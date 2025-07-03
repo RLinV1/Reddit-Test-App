@@ -57,9 +57,7 @@ export default function Home() {
           setError("Invalid email format. Please check your email.");
         }
       }
-      setError(
-        "Failed to sign in. Please check your credentials and try again."
-      );
+      
     }
   };
 
@@ -109,6 +107,7 @@ export default function Home() {
     }
   };
   return (
+    // Login and Sign Up Form
     <div className="bg-gray-100 dark:bg-gray-900 flex flex-col justify-evenly min-h-screen">
       <h1 className="text-3xl text-white text-center">
         Welcome to Test Reddit App

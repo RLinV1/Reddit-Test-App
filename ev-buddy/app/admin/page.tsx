@@ -27,7 +27,7 @@ const Admin = () => {
 
   useEffect(() => {
    if (!user) {
-      setDbUser(null);
+      setDbUser(null); // if no user, reset dbUser
       return;
     }
 
@@ -35,6 +35,7 @@ const Admin = () => {
         .get(`http://localhost:8000/api/users/${user?.uid}`)
         .then((response: AxiosResponse) => {
           setDbUser(response.data);
+          // database user is the one with the isAdmin property
           if (response.data.isAdmin !== true) {
             console.error("User is not an admin");
             router.push("/");
@@ -45,7 +46,7 @@ const Admin = () => {
           router.push("/");
         });
     
-
+      // fetch all posts
     const data = axios
       .get("http://localhost:8000/api/posts")
       .then((response: AxiosResponse) => {
@@ -55,6 +56,8 @@ const Admin = () => {
         console.error("Error fetching posts:", error);
       });
   }, [user]);
+
+  // convert all urls to a tags
   function linkify(text: string) {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const parts = text.split(urlRegex);
@@ -125,8 +128,8 @@ const Admin = () => {
   }
   return (
     <div className="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-screen p-4 text-black dark:text-white">
-      <nav className="border-gray-200 dark:bg-gray-900 dark:border-gray-700 text-black dark:text-white">
-        {error && (
+       {/* Error banner */}
+       {error && (
           <div className="fixed top-0 left-0 right-0 bg-red-600 text-white px-4 py-2 flex justify-between items-center z-50">
             <span>{error}</span>
             <button
@@ -137,6 +140,10 @@ const Admin = () => {
             </button>
           </div>
         )}
+      {/* Navbar */}
+      <nav className="border-gray-200 dark:bg-gray-900 dark:border-gray-700 text-black dark:text-white">
+        
+       
 
         <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto py-4">
           <a href="#" className="flex items-center space-x-3">
@@ -199,6 +206,7 @@ const Admin = () => {
           Admin Dashboard
           <p className="text-lg">Manage posts</p>
         </div>
+        {/* Posts feed */}
         <div className="max-w-5xl mx-auto p-4">
           {posts.map(({ _id, title, content, username, upvotes }) => (
             <div
