@@ -1,23 +1,104 @@
-
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../firebase/firebase"; // Adjust the import path as necessary
+import { FirebaseError } from "firebase/app";
 
 export default function Home() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [isSignIn, setIsSignIn] = useState(true);
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSignIn) {
       console.log("Signing in with", { email, password });
+      handleSignIn();
     } else {
-      console.log("Signing up with", { email, password });
+      console.log("Signing up with", { email, password, username });
+      handleSignUp();
     }
-    setEmail("");
-    setPassword("");
   };
-  
+
+  const handleSignIn = async () => {
+    try {
+      const userData = await signInWithEmailAndPassword(auth, email, password);
+      const user = userData.user;
+      console.log("User signed in:", user);
+      console.log("User signed in successfully");
+      router.push("/dashboard");
+      setEmail("");
+      setPassword("");
+      setUsername("");
+      setError("");
+    } catch (error) {
+      console.error("Error signing in:", error);
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+        if (error.code === "auth/user-not-found") {
+          setError("User not found. Please check your email or sign up.");
+        }
+        if (error.code === "auth/wrong-password") {
+          setError("Incorrect password. Please try again.");
+        }
+        if (error.code === "auth/invalid-email") {
+          setError("Invalid email format. Please check your email.");
+        }
+      }
+      setError(
+        "Failed to sign in. Please check your credentials and try again."
+      );
+    }
+  };
+
+  const handleSignUp = async () => {
+    try {
+      const userData = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userData.user;
+      console.log("User created:", user);
+      await updateProfile(user, {
+        displayName: username,
+      });
+
+      console.log("User signed up successfully");
+      router.push("/dashboard");
+      setEmail("");
+      setPassword("");
+      setUsername("");
+      setError("");
+    } catch (error) {
+      console.error("Error signing up:", error);
+      if (error instanceof FirebaseError) {
+        setError(error.message);
+        if (error.code === "auth/email-already-in-use") {
+          setError("Email already in use. Please use a different email.");
+        }
+        if (error.code === "auth/invalid-email") {
+          setError("Invalid email format. Please check your email.");
+        }
+        if (error.code === "auth/weak-password") {
+          setError("Weak password. Please use a stronger password.");
+        }
+      }
+      setError(
+        "Failed to sign up. Please check your credentials and try again."
+      );
+    }
+  };
   return (
     <div className="bg-gray-100 dark:bg-gray-900 flex flex-col justify-evenly min-h-screen">
       <h1 className="text-3xl text-white text-center">
@@ -25,6 +106,25 @@ export default function Home() {
       </h1>
 
       <form className="max-w-sm w-full mx-auto mb-16">
+        {!isSignIn && (
+          <div className="mb-5">
+            <label
+              htmlFor="email"
+              className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+            >
+              Your Username
+            </label>
+            <input
+              type="text"
+              id="username"
+              className="w-full p-2.5 border rounded-lg"
+              placeholder="Your Username"
+              required
+              onChange={(e) => setUsername(e.target.value)}
+              value={username}
+            />
+          </div>
+        )}
         <div className="mb-5">
           <label
             htmlFor="email"
@@ -39,8 +139,7 @@ export default function Home() {
             placeholder="name@company.com"
             required
             onChange={(e) => setEmail(e.target.value)}
-            value={email }
-
+            value={email}
           />
         </div>
 
@@ -69,11 +168,15 @@ export default function Home() {
         >
           {isSignIn ? "Sign In" : "Sign Up"}
         </button>
-        <button type="button" className="text-white hover:underline cursor-pointer flex w-full p-4 justify-center items-center" onClick={() => setIsSignIn(!isSignIn)}>
+        <button
+          type="button"
+          className="text-white hover:underline cursor-pointer flex w-full p-4 justify-center items-center"
+          onClick={() => setIsSignIn(!isSignIn)}
+        >
           Switch to {isSignIn ? "Sign Up" : "Sign In"}
         </button>
+        <div className="text-center text-red-500 mt-4">{error}</div>
       </form>
     </div>
-    
   );
 }
