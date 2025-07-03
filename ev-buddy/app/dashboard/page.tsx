@@ -59,11 +59,7 @@ const Dashboard = () => {
     },
   ];
 
-  const handlePostSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert("Post submitted! (You can connect this to Firestore)");
-    setShowModal(false);
-  };
+
 
   return (
     <div className="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-screen p-4 text-black dark:text-white">
@@ -172,7 +168,7 @@ const Dashboard = () => {
                 X
               </button>
             </div>
-            <form onSubmit={handlePostSubmit} className="flex flex-col gap-4">
+            <form  className="flex flex-col gap-4">
               <input
                 type="text"
                 placeholder="Title"
