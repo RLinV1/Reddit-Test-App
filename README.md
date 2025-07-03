@@ -13,4 +13,4 @@
 4. In the ev-buddy directory start up the frontend with the command npm run dev
 
 ### Technologies Used
-Next.js, Express, MongoDB, Node.js
+Next.js, Express, MongoDB, Node.js, Firebase
