@@ -1,8 +1,5 @@
 # Fake Reddit App
 
-## Technologies Used
-1. Next.js, Express, MongoDB, Node.js
-
 
 ## Prerequistes
 1. Have mongodb community server installed on your pc (https://www.mongodb.com/try/download/community)
@@ -15,3 +12,5 @@
 3. Afterwards start up the express server in the server directory with the command nodemon server.js.
 4. In the ev-buddy directory start up the frontend with the command npm run dev
 
+### Technologies Used
+Next.js, Express, MongoDB, Node.js
