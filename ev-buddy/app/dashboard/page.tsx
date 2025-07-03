@@ -168,7 +168,7 @@ const Dashboard = () => {
                 X
               </button>
             </div>
-            <form  className="flex flex-col gap-4">
+            <form className="flex flex-col gap-4">
               <input
                 type="text"
                 placeholder="Title"
