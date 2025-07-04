@@ -9,6 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// connect to MongoDB
 mongoose.connect('mongodb://127.0.0.1:27017/evbuddy', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -18,6 +19,7 @@ mongoose.connect('mongodb://127.0.0.1:27017/evbuddy', {
   console.error('MongoDB connection error:', err)
   });
 
+// get a specific user by uid
 app.get("/api/users/:uid", async (req, res) => {
   const { uid } = req.params;
   try {
@@ -30,6 +32,8 @@ app.get("/api/users/:uid", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// create a new user
 app.post("/api/users", async (req, res) => {
   const { uid, email, username, isAdmin } = req.body;
 
@@ -42,6 +46,7 @@ app.post("/api/users", async (req, res) => {
   }
 });
 
+// create a new post
 app.post('/api/posts', async (req, res) => {
   const { title, content, username } = req.body;
   if (!title || !content || !username) {
@@ -57,13 +62,31 @@ app.post('/api/posts', async (req, res) => {
   }
 });
 
+// get all posts sorted by upvotes from highest to lowest
 app.get('/api/posts', async (req, res) => {
   const posts = await Post.find().sort({ upvotes: -1 });
   res.json(posts);
 });
 
+app.get('/api/votes/:uid', async (req, res) => {
+  const { uid } = req.params;
+  if (!uid) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+  
+  try {
+    const vote = await Vote.find({ uid });
+    if (!vote) {
+      return res.status(404).json({ error: 'Vote not found' });
+    }
+    res.json(vote);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+})
 
 
+// remove a post by id
 app.delete('/api/posts/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -92,12 +115,12 @@ app.post('/api/posts/upvote', async (req, res) => {
 
   if (existingVote) {
     if (existingVote.vote === 1) {
-      await Vote.deleteOne({ post: id, uid });
+      await Vote.deleteOne({ post: id, uid }); // if the user removes their upvote, we delete the vote
       voteChange = -1;  
     } else {
       existingVote.vote = 1;
       await existingVote.save();
-      voteChange = 2; 
+      voteChange = 2; // if the user changes from downvote to upvote, we add 2 to the upvotes i.e -1 -> 1 
     }
   } else {
     // New upvote
@@ -136,12 +159,12 @@ app.post('/api/posts/downvote', async (req, res) => {
 
   if (existingVote) {
     if (existingVote.vote === -1) {
-      await Vote.deleteOne({ post: id, uid });
+      await Vote.deleteOne({ post: id, uid }); // if the user removes their downvote, we delete the vote
       voteChange = 1; 
     } else {
       existingVote.vote = -1;
       await existingVote.save();
-      voteChange = -2;  
+      voteChange = -2;   // if the user changes from upvote to downvote, we subtract 2 from the upvotes i.e 1 -> -1
     }
   } else {
     const newVote = new Vote({ post: id, uid, vote: -1 });
